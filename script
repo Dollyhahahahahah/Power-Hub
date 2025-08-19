@@ -1,0 +1,325 @@
+--[[
+    Painel Circular Roblox - WalkSpeed/JumpPower/Noclip aprimorado
+    - Painel e bolinha arrastáveis pela tela
+    - Limite de velocidade até 180
+    - Não somem ao morrer/respawnar (ResetOnSpawn = false)
+    - Rollback minimizado, impulso de pulo suave
+    - UI moderna, sliders, noclip funcional
+    - Clique no círculo ou CTRL esquerdo para abrir/fechar
+    - Coloque em StarterPlayerScripts
+    - Sem lógica de ragdoll!
+]]
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+local walkSpeed = 16
+local jumpPower = 50
+local noclipOn = false
+
+local MAX_SAFE_SPEED = 180
+local MAX_SAFE_JUMP = 100
+
+-- UI única, nunca some após respawn!
+local gui = Instance.new("ScreenGui")
+gui.Name = "CircleUI"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Círculo fixo, arrastável!
+local circle = Instance.new("ImageButton")
+circle.Size = UDim2.new(0,80,0,80)
+circle.Position = UDim2.new(0,40,0.5,-40)
+circle.AnchorPoint = Vector2.new(0,0.5)
+circle.BackgroundColor3 = Color3.fromRGB(38,166,154)
+circle.Image = ""
+circle.Parent = gui
+Instance.new("UICorner", circle).CornerRadius = UDim.new(1,0)
+
+local icon = Instance.new("TextLabel")
+icon.Parent = circle
+icon.Size = UDim2.new(1,0,1,0)
+icon.BackgroundTransparency = 1
+icon.Text = "⚡"
+icon.Font = Enum.Font.GothamBold
+icon.TextSize = 40
+icon.TextColor3 = Color3.fromRGB(255,255,255)
+
+-- Painel separado, arrastável!
+local panel = Instance.new("Frame")
+panel.Size = UDim2.new(0,340,0,320)
+panel.Position = UDim2.new(0.5, -170, 0.5, -160)
+panel.AnchorPoint = Vector2.new(0.5,0.5)
+panel.BackgroundColor3 = Color3.fromRGB(24,28,34)
+panel.Visible = false
+panel.Parent = gui
+panel.ZIndex = 2
+local panelCorner = Instance.new("UICorner", panel)
+panelCorner.CornerRadius = UDim.new(0,24)
+
+local shadow = Instance.new("ImageLabel", panel)
+shadow.Image = "rbxassetid://1316045217"
+shadow.BackgroundTransparency = 1
+shadow.Size = UDim2.new(1,40,1,40)
+shadow.Position = UDim2.new(0,-20,0,-20)
+shadow.ZIndex = 1
+
+local title = Instance.new("TextLabel")
+title.Parent = panel
+title.Text = "Painel de Poder"
+title.Size = UDim2.new(1,0,0,40)
+title.Position = UDim2.new(0,0,0,0)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.fromRGB(236,239,241)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 26
+title.ZIndex = 2
+
+local optionsFrame = Instance.new("Frame", panel)
+optionsFrame.Size = UDim2.new(1,-40,1,-70)
+optionsFrame.Position = UDim2.new(0,20,0,50)
+optionsFrame.BackgroundTransparency = 1
+optionsFrame.ZIndex = 3
+
+local layout = Instance.new("UIListLayout", optionsFrame)
+layout.Padding = UDim.new(0,18)
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function criarSlider(nome, minValue, maxValue, curValue, cor)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1,0,0,56)
+    container.BackgroundTransparency = 1
+    container.ZIndex = 4
+
+    local label = Instance.new("TextLabel", container)
+    label.Text = nome
+    label.Size = UDim2.new(0.3,0,1,0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(200,200,200)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 18
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.ZIndex = 5
+
+    local slider = Instance.new("Frame", container)
+    slider.Size = UDim2.new(0.6,0,0.4,0)
+    slider.Position = UDim2.new(0.32,0,0.3,0)
+    slider.BackgroundColor3 = Color3.fromRGB(46, 52, 64)
+    slider.ZIndex = 6
+    Instance.new("UICorner", slider).CornerRadius = UDim.new(0,9)
+
+    local fill = Instance.new("Frame", slider)
+    fill.BackgroundColor3 = cor
+    fill.Size = UDim2.new((curValue-minValue)/(maxValue-minValue),0,1,0)
+    fill.Position = UDim2.new(0,0,0,0)
+    fill.BorderSizePixel = 0
+    fill.Name = "Fill"
+    fill.ZIndex = 7
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(0,9)
+
+    local valueLabel = Instance.new("TextLabel", container)
+    valueLabel.Text = tostring(curValue)
+    valueLabel.Size = UDim2.new(0.15,0,1,0)
+    valueLabel.Position = UDim2.new(0.92,0,0,0)
+    valueLabel.BackgroundTransparency = 1
+    valueLabel.TextColor3 = cor
+    valueLabel.Font = Enum.Font.GothamSemibold
+    valueLabel.TextSize = 18
+    valueLabel.ZIndex = 8
+
+    slider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local conn
+            conn = RunService.RenderStepped:Connect(function()
+                local mouse = Players.LocalPlayer:GetMouse()
+                local absPos = slider.AbsolutePosition.X
+                local sliderWidth = slider.AbsoluteSize.X
+                local mouseX = math.clamp(mouse.X - absPos, 0, sliderWidth)
+                local alpha = mouseX / sliderWidth
+                local value = math.floor(minValue + (maxValue-minValue)*alpha)
+                valueLabel.Text = tostring(value)
+                fill.Size = UDim2.new(alpha,0,1,0)
+                slider:SetAttribute("CurrentValue", value)
+            end)
+            local inputConn
+            inputConn = UserInputService.InputEnded:Connect(function(input2)
+                if input2.UserInputType == Enum.UserInputType.MouseButton1 then
+                    conn:Disconnect()
+                    inputConn:Disconnect()
+                end
+            end)
+        end
+    end)
+    slider:SetAttribute("CurrentValue", curValue)
+    return container, slider
+end
+
+-- WalkSpeed (até 180)
+local wsContainer, wsSlider = criarSlider("Walk Speed", 8, MAX_SAFE_SPEED, walkSpeed, Color3.fromRGB(46,204,113))
+wsContainer.Parent = optionsFrame
+
+-- JumpPower
+local jpContainer, jpSlider = criarSlider("Jump Power", 35, MAX_SAFE_JUMP, jumpPower, Color3.fromRGB(80,160,240))
+jpContainer.Parent = optionsFrame
+
+-- Noclip Toggle
+local ncContainer = Instance.new("Frame")
+ncContainer.Size = UDim2.new(1,0,0,56)
+ncContainer.BackgroundTransparency = 1
+ncContainer.ZIndex = 4
+ncContainer.Parent = optionsFrame
+
+local ncLabel = Instance.new("TextLabel", ncContainer)
+ncLabel.Text = "Noclip"
+ncLabel.Size = UDim2.new(0.3,0,1,0)
+ncLabel.BackgroundTransparency = 1
+ncLabel.TextColor3 = Color3.fromRGB(200,200,200)
+ncLabel.Font = Enum.Font.Gotham
+ncLabel.TextSize = 18
+ncLabel.TextXAlignment = Enum.TextXAlignment.Left
+ncLabel.ZIndex = 5
+
+local ncToggle = Instance.new("TextButton", ncContainer)
+ncToggle.Size = UDim2.new(0.32,0,0.7,0)
+ncToggle.Position = UDim2.new(0.35,0,0.15,0)
+ncToggle.BackgroundColor3 = Color3.fromRGB(38,166,154)
+ncToggle.Font = Enum.Font.GothamBold
+ncToggle.Text = "OFF"
+ncToggle.TextColor3 = Color3.fromRGB(255,255,255)
+ncToggle.TextSize = 18
+ncToggle.ZIndex = 6
+Instance.new("UICorner", ncToggle).CornerRadius = UDim.new(0, 9)
+
+ncToggle.MouseButton1Click:Connect(function()
+    noclipOn = not noclipOn
+    ncToggle.Text = noclipOn and "ON" or "OFF"
+    ncToggle.BackgroundColor3 = noclipOn and Color3.fromRGB(46,204,113) or Color3.fromRGB(38,166,154)
+end)
+
+-- WalkSpeed universal: rollback safe
+RunService.RenderStepped:Connect(function()
+    local char = player.Character
+    local humanoid = char and char:FindFirstChildWhichIsA("Humanoid")
+    if humanoid then
+        walkSpeed = wsSlider:GetAttribute("CurrentValue") or walkSpeed
+        walkSpeed = math.clamp(walkSpeed, 8, MAX_SAFE_SPEED)
+        pcall(function()
+            humanoid.WalkSpeed = walkSpeed
+        end)
+        if humanoid.MoveDirection.Magnitude > 0 then
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then
+                if humanoid:GetState() == Enum.HumanoidStateType.Running or humanoid:GetState() == Enum.HumanoidStateType.Jumping then
+                    root.Velocity = Vector3.new(
+                        humanoid.MoveDirection.X * walkSpeed,
+                        root.Velocity.Y,
+                        humanoid.MoveDirection.Z * walkSpeed
+                    )
+                end
+            end
+        end
+    end
+end)
+
+-- JumpBoost universal: impulso vertical curto, não voa!
+local lastJump = 0
+RunService.RenderStepped:Connect(function()
+    local char = player.Character
+    local humanoid = char and char:FindFirstChildWhichIsA("Humanoid")
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if humanoid and root then
+        jumpPower = jpSlider:GetAttribute("CurrentValue") or jumpPower
+        jumpPower = math.clamp(jumpPower, 35, MAX_SAFE_JUMP)
+        pcall(function()
+            humanoid.JumpPower = jumpPower
+        end)
+        if humanoid:GetState() == Enum.HumanoidStateType.Jumping then
+            if tick() - lastJump > 0.6 and humanoid.FloorMaterial ~= Enum.Material.Air then
+                lastJump = tick()
+                root.Velocity = Vector3.new(root.Velocity.X, jumpPower, root.Velocity.Z)
+            end
+        end
+    end
+end)
+
+-- Noclip
+RunService.Stepped:Connect(function()
+    if noclipOn then
+        local char = player.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    else
+        local char = player.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide == false then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end)
+
+-- Mostrar/Ocultar painel
+local minimized = true
+local function togglePanel()
+    minimized = not minimized
+    panel.Visible = not minimized
+end
+
+circle.MouseButton1Click:Connect(togglePanel)
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Enum.KeyCode.LeftControl then
+        togglePanel()
+    end
+end)
+
+-- Painel arrastável (drag & drop fix - só arrasta se clicar no fundo do painel)
+local draggingPanel = false
+local panelDragOffset = nil
+
+panel.MouseButton1Down:Connect(function(x, y)
+    draggingPanel = true
+    panelDragOffset = Vector2.new(x - panel.AbsolutePosition.X, y - panel.AbsolutePosition.Y)
+end)
+
+panel.MouseButton1Up:Connect(function()
+    draggingPanel = false
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingPanel and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local mousePos = UserInputService:GetMouseLocation()
+        local newAbsPos = Vector2.new(mousePos.X, mousePos.Y) - panelDragOffset
+        panel.Position = UDim2.new(0, newAbsPos.X, 0, newAbsPos.Y)
+    end
+end)
+
+-- Bolinha arrastável (drag & drop fix - só arrasta se clicar na bolinha, não no ícone)
+local draggingCircle = false
+local circleDragOffset = nil
+
+circle.MouseButton1Down:Connect(function(x, y)
+    draggingCircle = true
+    circleDragOffset = Vector2.new(x - circle.AbsolutePosition.X, y - circle.AbsolutePosition.Y)
+end)
+
+circle.MouseButton1Up:Connect(function()
+    draggingCircle = false
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingCircle and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local mousePos = UserInputService:GetMouseLocation()
+        local newAbsPos = Vector2.new(mousePos.X, mousePos.Y) - circleDragOffset
+        circle.Position = UDim2.new(0, newAbsPos.X, 0, newAbsPos.Y)
+    end
+end)
