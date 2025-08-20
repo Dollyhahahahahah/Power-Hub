@@ -1,15 +1,3 @@
---[[
-    Painel Circular Roblox - WalkSpeed/JumpPower/Noclip aprimorado
-    - Painel e bolinha arrastáveis pela tela
-    - Limite de velocidade até 180
-    - Não somem ao morrer/respawnar (ResetOnSpawn = false)
-    - Rollback minimizado, impulso de pulo suave
-    - UI moderna, sliders, noclip funcional
-    - Clique no círculo ou CTRL esquerdo para abrir/fechar
-    - Coloque em StarterPlayerScripts
-    - Sem lógica de ragdoll!
-]]
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -130,23 +118,27 @@ local function criarSlider(nome, minValue, maxValue, curValue, cor)
     valueLabel.TextSize = 18
     valueLabel.ZIndex = 8
 
+    local function updateValue(inputPosX)
+        local absPos = slider.AbsolutePosition.X
+        local sliderWidth = slider.AbsoluteSize.X
+        local mouseX = math.clamp(inputPosX - absPos, 0, sliderWidth)
+        local alpha = mouseX / sliderWidth
+        local value = math.floor(minValue + (maxValue-minValue)*alpha)
+        valueLabel.Text = tostring(value)
+        fill.Size = UDim2.new(alpha,0,1,0)
+        slider:SetAttribute("CurrentValue", value)
+    end
+
     slider.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             local conn
             conn = RunService.RenderStepped:Connect(function()
                 local mouse = Players.LocalPlayer:GetMouse()
-                local absPos = slider.AbsolutePosition.X
-                local sliderWidth = slider.AbsoluteSize.X
-                local mouseX = math.clamp(mouse.X - absPos, 0, sliderWidth)
-                local alpha = mouseX / sliderWidth
-                local value = math.floor(minValue + (maxValue-minValue)*alpha)
-                valueLabel.Text = tostring(value)
-                fill.Size = UDim2.new(alpha,0,1,0)
-                slider:SetAttribute("CurrentValue", value)
+                updateValue(mouse.X)
             end)
             local inputConn
             inputConn = UserInputService.InputEnded:Connect(function(input2)
-                if input2.UserInputType == Enum.UserInputType.MouseButton1 then
+                if input2.UserInputType == Enum.UserInputType.MouseButton1 or input2.UserInputType == Enum.UserInputType.Touch then
                     conn:Disconnect()
                     inputConn:Disconnect()
                 end
@@ -197,6 +189,24 @@ ncToggle.MouseButton1Click:Connect(function()
     noclipOn = not noclipOn
     ncToggle.Text = noclipOn and "ON" or "OFF"
     ncToggle.BackgroundColor3 = noclipOn and Color3.fromRGB(46,204,113) or Color3.fromRGB(38,166,154)
+end)
+
+-- Fly Button (canto superior direito)
+local flyButton = Instance.new("TextButton")
+flyButton.Size = UDim2.new(0, 80, 0, 40)
+flyButton.Position = UDim2.new(1, -90, 0, 10)
+flyButton.AnchorPoint = Vector2.new(0, 0)
+flyButton.BackgroundColor3 = Color3.fromRGB(38,166,154)
+flyButton.Text = "Fly"
+flyButton.Font = Enum.Font.GothamBold
+flyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+flyButton.TextSize = 22
+flyButton.ZIndex = 5
+flyButton.Parent = gui
+Instance.new("UICorner", flyButton).CornerRadius = UDim.new(0, 12)
+
+flyButton.MouseButton1Click:Connect(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"))()
 end)
 
 -- WalkSpeed universal: rollback safe
@@ -282,44 +292,56 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
--- Painel arrastável (drag & drop fix - só arrasta se clicar no fundo do painel)
+-- Painel arrastável (drag & drop) Suporte mouse e touch
 local draggingPanel = false
 local panelDragOffset = nil
 
-panel.MouseButton1Down:Connect(function(x, y)
+local function startDragPanel(input)
     draggingPanel = true
-    panelDragOffset = Vector2.new(x - panel.AbsolutePosition.X, y - panel.AbsolutePosition.Y)
-end)
+    panelDragOffset = Vector2.new(input.Position.X - panel.AbsolutePosition.X, input.Position.Y - panel.AbsolutePosition.Y)
+    input.Changed:Connect(function()
+        if input.UserInputState == Enum.UserInputState.End then
+            draggingPanel = false
+        end
+    end)
+end
 
-panel.MouseButton1Up:Connect(function()
-    draggingPanel = false
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if draggingPanel and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local mousePos = UserInputService:GetMouseLocation()
-        local newAbsPos = Vector2.new(mousePos.X, mousePos.Y) - panelDragOffset
-        panel.Position = UDim2.new(0, newAbsPos.X, 0, newAbsPos.Y)
+panel.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        startDragPanel(input)
     end
 end)
 
--- Bolinha arrastável (drag & drop fix - só arrasta se clicar na bolinha, não no ícone)
+UserInputService.InputChanged:Connect(function(input)
+    if draggingPanel and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local newPos = Vector2.new(input.Position.X, input.Position.Y) - panelDragOffset
+        panel.Position = UDim2.new(0, newPos.X, 0, newPos.Y)
+    end
+end)
+
+-- Bolinha arrastável (drag & drop) Suporte mouse e touch
 local draggingCircle = false
 local circleDragOffset = nil
 
-circle.MouseButton1Down:Connect(function(x, y)
+local function startDragCircle(input)
     draggingCircle = true
-    circleDragOffset = Vector2.new(x - circle.AbsolutePosition.X, y - circle.AbsolutePosition.Y)
-end)
+    circleDragOffset = Vector2.new(input.Position.X - circle.AbsolutePosition.X, input.Position.Y - circle.AbsolutePosition.Y)
+    input.Changed:Connect(function()
+        if input.UserInputState == Enum.UserInputState.End then
+            draggingCircle = false
+        end
+    end)
+end
 
-circle.MouseButton1Up:Connect(function()
-    draggingCircle = false
+circle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        startDragCircle(input)
+    end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if draggingCircle and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local mousePos = UserInputService:GetMouseLocation()
-        local newAbsPos = Vector2.new(mousePos.X, mousePos.Y) - circleDragOffset
-        circle.Position = UDim2.new(0, newAbsPos.X, 0, newAbsPos.Y)
+    if draggingCircle and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local newPos = Vector2.new(input.Position.X, input.Position.Y) - circleDragOffset
+        circle.Position = UDim2.new(0, newPos.X, 0, newPos.Y)
     end
 end)
