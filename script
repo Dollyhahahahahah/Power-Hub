@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 
 local walkSpeed = 16
@@ -10,6 +11,20 @@ local noclipOn = false
 local MAX_SAFE_SPEED = 180
 local MAX_SAFE_JUMP = 100
 
+local spawnPosition = nil
+
+-- Função para capturar a posição inicial após spawn
+local function onCharacterAdded(character)
+    local rootPart = character:WaitForChild("HumanoidRootPart")
+    spawnPosition = rootPart.Position
+end
+
+if player.Character then
+    onCharacterAdded(player.Character)
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
+
 -- UI única, nunca some após respawn!
 local gui = Instance.new("ScreenGui")
 gui.Name = "CircleUI"
@@ -18,100 +33,100 @@ gui.Parent = player:WaitForChild("PlayerGui")
 
 -- Círculo fixo, arrastável!
 local circle = Instance.new("ImageButton")
-circle.Size = UDim2.new(0,80,0,80)
-circle.Position = UDim2.new(0,40,0.5,-40)
-circle.AnchorPoint = Vector2.new(0,0.5)
-circle.BackgroundColor3 = Color3.fromRGB(38,166,154)
+circle.Size = UDim2.new(0, 80, 0, 80)
+circle.Position = UDim2.new(0, 40, 0.5, -40)
+circle.AnchorPoint = Vector2.new(0, 0.5)
+circle.BackgroundColor3 = Color3.fromRGB(38, 166, 154)
 circle.Image = ""
 circle.Parent = gui
-Instance.new("UICorner", circle).CornerRadius = UDim.new(1,0)
+Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
 
 local icon = Instance.new("TextLabel")
 icon.Parent = circle
-icon.Size = UDim2.new(1,0,1,0)
+icon.Size = UDim2.new(1, 0, 1, 0)
 icon.BackgroundTransparency = 1
 icon.Text = "⚡"
 icon.Font = Enum.Font.GothamBold
 icon.TextSize = 40
-icon.TextColor3 = Color3.fromRGB(255,255,255)
+icon.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 -- Painel separado, arrastável!
 local panel = Instance.new("Frame")
-panel.Size = UDim2.new(0,340,0,320)
-panel.Position = UDim2.new(0.5, -170, 0.5, -160)
-panel.AnchorPoint = Vector2.new(0.5,0.5)
-panel.BackgroundColor3 = Color3.fromRGB(24,28,34)
+panel.Size = UDim2.new(0, 340, 0, 360) -- aumentei altura para caber nova opção
+panel.Position = UDim2.new(0.5, -170, 0.5, -180)
+panel.AnchorPoint = Vector2.new(0.5, 0.5)
+panel.BackgroundColor3 = Color3.fromRGB(24, 28, 34)
 panel.Visible = false
 panel.Parent = gui
 panel.ZIndex = 2
 local panelCorner = Instance.new("UICorner", panel)
-panelCorner.CornerRadius = UDim.new(0,24)
+panelCorner.CornerRadius = UDim.new(0, 24)
 
 local shadow = Instance.new("ImageLabel", panel)
 shadow.Image = "rbxassetid://1316045217"
 shadow.BackgroundTransparency = 1
-shadow.Size = UDim2.new(1,40,1,40)
-shadow.Position = UDim2.new(0,-20,0,-20)
+shadow.Size = UDim2.new(1, 40, 1, 40)
+shadow.Position = UDim2.new(0, -20, 0, -20)
 shadow.ZIndex = 1
 
 local title = Instance.new("TextLabel")
 title.Parent = panel
 title.Text = "Painel de Poder"
-title.Size = UDim2.new(1,0,0,40)
-title.Position = UDim2.new(0,0,0,0)
+title.Size = UDim2.new(1, 0, 0, 40)
+title.Position = UDim2.new(0, 0, 0, 0)
 title.BackgroundTransparency = 1
-title.TextColor3 = Color3.fromRGB(236,239,241)
+title.TextColor3 = Color3.fromRGB(236, 239, 241)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 26
 title.ZIndex = 2
 
 local optionsFrame = Instance.new("Frame", panel)
-optionsFrame.Size = UDim2.new(1,-40,1,-70)
-optionsFrame.Position = UDim2.new(0,20,0,50)
+optionsFrame.Size = UDim2.new(1, -40, 1, -100) -- ajustei pra altura menor pela barra de título
+optionsFrame.Position = UDim2.new(0, 20, 0, 50)
 optionsFrame.BackgroundTransparency = 1
 optionsFrame.ZIndex = 3
 
 local layout = Instance.new("UIListLayout", optionsFrame)
-layout.Padding = UDim.new(0,18)
+layout.Padding = UDim.new(0, 18)
 layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 
 local function criarSlider(nome, minValue, maxValue, curValue, cor)
     local container = Instance.new("Frame")
-    container.Size = UDim2.new(1,0,0,56)
+    container.Size = UDim2.new(1, 0, 0, 56)
     container.BackgroundTransparency = 1
     container.ZIndex = 4
 
     local label = Instance.new("TextLabel", container)
     label.Text = nome
-    label.Size = UDim2.new(0.3,0,1,0)
+    label.Size = UDim2.new(0.3, 0, 1, 0)
     label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(200,200,200)
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
     label.Font = Enum.Font.Gotham
     label.TextSize = 18
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.ZIndex = 5
 
     local slider = Instance.new("Frame", container)
-    slider.Size = UDim2.new(0.6,0,0.4,0)
-    slider.Position = UDim2.new(0.32,0,0.3,0)
+    slider.Size = UDim2.new(0.6, 0, 0.4, 0)
+    slider.Position = UDim2.new(0.32, 0, 0.3, 0)
     slider.BackgroundColor3 = Color3.fromRGB(46, 52, 64)
     slider.ZIndex = 6
-    Instance.new("UICorner", slider).CornerRadius = UDim.new(0,9)
+    Instance.new("UICorner", slider).CornerRadius = UDim.new(0, 9)
 
     local fill = Instance.new("Frame", slider)
     fill.BackgroundColor3 = cor
-    fill.Size = UDim2.new((curValue-minValue)/(maxValue-minValue),0,1,0)
-    fill.Position = UDim2.new(0,0,0,0)
+    fill.Size = UDim2.new((curValue - minValue) / (maxValue - minValue), 0, 1, 0)
+    fill.Position = UDim2.new(0, 0, 0, 0)
     fill.BorderSizePixel = 0
     fill.Name = "Fill"
     fill.ZIndex = 7
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(0,9)
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 9)
 
     local valueLabel = Instance.new("TextLabel", container)
     valueLabel.Text = tostring(curValue)
-    valueLabel.Size = UDim2.new(0.15,0,1,0)
-    valueLabel.Position = UDim2.new(0.92,0,0,0)
+    valueLabel.Size = UDim2.new(0.15, 0, 1, 0)
+    valueLabel.Position = UDim2.new(0.92, 0, 0, 0)
     valueLabel.BackgroundTransparency = 1
     valueLabel.TextColor3 = cor
     valueLabel.Font = Enum.Font.GothamSemibold
@@ -123,9 +138,9 @@ local function criarSlider(nome, minValue, maxValue, curValue, cor)
         local sliderWidth = slider.AbsoluteSize.X
         local mouseX = math.clamp(inputPosX - absPos, 0, sliderWidth)
         local alpha = mouseX / sliderWidth
-        local value = math.floor(minValue + (maxValue-minValue)*alpha)
+        local value = math.floor(minValue + (maxValue - minValue) * alpha)
         valueLabel.Text = tostring(value)
-        fill.Size = UDim2.new(alpha,0,1,0)
+        fill.Size = UDim2.new(alpha, 0, 1, 0)
         slider:SetAttribute("CurrentValue", value)
     end
 
@@ -150,37 +165,45 @@ local function criarSlider(nome, minValue, maxValue, curValue, cor)
 end
 
 -- WalkSpeed (até 180)
-local wsContainer, wsSlider = criarSlider("Walk Speed", 8, MAX_SAFE_SPEED, walkSpeed, Color3.fromRGB(46,204,113))
+local wsContainer, wsSlider = criarSlider("Walk Speed", 8, MAX_SAFE_SPEED, walkSpeed, Color3.fromRGB(46, 204, 113))
 wsContainer.Parent = optionsFrame
 
 -- JumpPower
-local jpContainer, jpSlider = criarSlider("Jump Power", 35, MAX_SAFE_JUMP, jumpPower, Color3.fromRGB(80,160,240))
+local jpContainer, jpSlider = criarSlider("Jump Power", 35, MAX_SAFE_JUMP, jumpPower, Color3.fromRGB(80, 160, 240))
 jpContainer.Parent = optionsFrame
+
+-- Tween Speed Slider
+local tweenSpeedMin = 1    -- segundos mínimos (mais rápido)
+local tweenSpeedMax = 20   -- segundos máximos (mais lento)
+local tweenSpeedDefault = 9
+
+local tweenSpeedContainer, tweenSpeedSlider = criarSlider("Tween Speed", tweenSpeedMin, tweenSpeedMax, tweenSpeedDefault, Color3.fromRGB(255, 223, 0))
+tweenSpeedContainer.Parent = optionsFrame
 
 -- Noclip Toggle
 local ncContainer = Instance.new("Frame")
-ncContainer.Size = UDim2.new(1,0,0,56)
+ncContainer.Size = UDim2.new(1, 0, 0, 56)
 ncContainer.BackgroundTransparency = 1
 ncContainer.ZIndex = 4
 ncContainer.Parent = optionsFrame
 
 local ncLabel = Instance.new("TextLabel", ncContainer)
 ncLabel.Text = "Noclip"
-ncLabel.Size = UDim2.new(0.3,0,1,0)
+ncLabel.Size = UDim2.new(0.3, 0, 1, 0)
 ncLabel.BackgroundTransparency = 1
-ncLabel.TextColor3 = Color3.fromRGB(200,200,200)
+ncLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 ncLabel.Font = Enum.Font.Gotham
 ncLabel.TextSize = 18
 ncLabel.TextXAlignment = Enum.TextXAlignment.Left
 ncLabel.ZIndex = 5
 
 local ncToggle = Instance.new("TextButton", ncContainer)
-ncToggle.Size = UDim2.new(0.32,0,0.7,0)
-ncToggle.Position = UDim2.new(0.35,0,0.15,0)
-ncToggle.BackgroundColor3 = Color3.fromRGB(38,166,154)
+ncToggle.Size = UDim2.new(0.32, 0, 0.7, 0)
+ncToggle.Position = UDim2.new(0.35, 0, 0.15, 0)
+ncToggle.BackgroundColor3 = Color3.fromRGB(38, 166, 154)
 ncToggle.Font = Enum.Font.GothamBold
 ncToggle.Text = "OFF"
-ncToggle.TextColor3 = Color3.fromRGB(255,255,255)
+ncToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 ncToggle.TextSize = 18
 ncToggle.ZIndex = 6
 Instance.new("UICorner", ncToggle).CornerRadius = UDim.new(0, 9)
@@ -188,7 +211,55 @@ Instance.new("UICorner", ncToggle).CornerRadius = UDim.new(0, 9)
 ncToggle.MouseButton1Click:Connect(function()
     noclipOn = not noclipOn
     ncToggle.Text = noclipOn and "ON" or "OFF"
-    ncToggle.BackgroundColor3 = noclipOn and Color3.fromRGB(46,204,113) or Color3.fromRGB(38,166,154)
+    ncToggle.BackgroundColor3 = noclipOn and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(38, 166, 154)
+end)
+
+-- Teleport Tween Button (voa devagar com tempo ajustado pelo slider)
+local tpContainer = Instance.new("Frame")
+tpContainer.Size = UDim2.new(1, 0, 0, 56)
+tpContainer.BackgroundTransparency = 1
+tpContainer.ZIndex = 4
+tpContainer.Parent = optionsFrame
+
+local tpLabel = Instance.new("TextLabel", tpContainer)
+tpLabel.Text = "Tween to Spawn"
+tpLabel.Size = UDim2.new(0.5, 0, 1, 0)
+tpLabel.BackgroundTransparency = 1
+tpLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+tpLabel.Font = Enum.Font.Gotham
+tpLabel.TextSize = 18
+tpLabel.TextXAlignment = Enum.TextXAlignment.Left
+tpLabel.ZIndex = 5
+
+local tpButton = Instance.new("TextButton", tpContainer)
+tpButton.Size = UDim2.new(0.4, 0, 0.7, 0)
+tpButton.Position = UDim2.new(0.55, 0, 0.15, 0)
+tpButton.BackgroundColor3 = Color3.fromRGB(38, 166, 154)
+tpButton.Font = Enum.Font.GothamBold
+tpButton.Text = "Tween"
+tpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpButton.TextSize = 18
+tpButton.ZIndex = 6
+Instance.new("UICorner", tpButton).CornerRadius = UDim.new(0, 9)
+
+tpButton.MouseButton1Click:Connect(function()
+    local character = player.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if rootPart and spawnPosition then
+        local tweenDuration = tweenSpeedSlider:GetAttribute("CurrentValue") or tweenSpeedDefault
+        local targetCFrame = CFrame.new(spawnPosition + Vector3.new(0, 10, 0)) -- 10 studs acima para voar
+
+        local tweenInfo = TweenInfo.new(
+            tweenDuration,
+            Enum.EasingStyle.Sine,
+            Enum.EasingDirection.Out
+        )
+
+        local tween = TweenService:Create(rootPart, tweenInfo, {CFrame = targetCFrame})
+        tween:Play()
+    else
+        warn("Posição de spawn não está disponível.")
+    end
 end)
 
 -- Fly Button (canto superior direito)
@@ -196,7 +267,7 @@ local flyButton = Instance.new("TextButton")
 flyButton.Size = UDim2.new(0, 80, 0, 40)
 flyButton.Position = UDim2.new(1, -90, 0, 10)
 flyButton.AnchorPoint = Vector2.new(0, 0)
-flyButton.BackgroundColor3 = Color3.fromRGB(38,166,154)
+flyButton.BackgroundColor3 = Color3.fromRGB(38, 166, 154)
 flyButton.Text = "Fly"
 flyButton.Font = Enum.Font.GothamBold
 flyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -222,7 +293,8 @@ RunService.RenderStepped:Connect(function()
         if humanoid.MoveDirection.Magnitude > 0 then
             local root = char:FindFirstChild("HumanoidRootPart")
             if root then
-                if humanoid:GetState() == Enum.HumanoidStateType.Running or humanoid:GetState() == Enum.HumanoidStateType.Jumping then
+                local state = humanoid:GetState()
+                if state == Enum.HumanoidStateType.Running or state == Enum.HumanoidStateType.Jumping then
                     root.Velocity = Vector3.new(
                         humanoid.MoveDirection.X * walkSpeed,
                         root.Velocity.Y,
@@ -270,7 +342,7 @@ RunService.Stepped:Connect(function()
         local char = player.Character
         if char then
             for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") and part.CanCollide == false then
+                if part:IsA("BasePart") and not part.CanCollide then
                     part.CanCollide = true
                 end
             end
